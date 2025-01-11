@@ -1,0 +1,233 @@
+{
+  "name": "Visa Sponsorship Company Search and Summarize",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "Start",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "binaryPropertyName": "data",
+        "dataPropertyName": "json",
+        "options": {}
+      },
+      "name": "Spreadsheet File",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 1,
+      "position": [
+        750,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Parses the Excel file from the Read Binary File node"
+    },
+    {
+      "parameters": {
+        "filePath": "/data/visa_sponsorship_companies.xlsx",
+        "binaryPropertyName": "data"
+      },
+      "name": "Read Binary File",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Reads the Excel file from the server filesystem"
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "GET",
+        "url": "https://api.example.com/search",
+        "allowUnauthorizedCerts": false,
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "company",
+              "value": "={{$json[\"CompanyName\"]}}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBinaryData": false
+      },
+      "name": "Search Listings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1250,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Makes an HTTP request to an external API to find listings for this company"
+    },
+    {
+      "parameters": {
+        "operation": "complete",
+        "model": "text-davinci-003",
+        "prompt":
+          "Summarize and categorize the following job listing text:\n\n{{$json[\"data\"]}}\n\nProvide two sections:\n1. Summary\n2. Categories (e.g., Engineering, Sales, Marketing, etc.)",
+        "temperature": 0.7,
+        "maxTokens": 500,
+        "stop": []
+      },
+      "name": "OpenAI Summarize",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        300
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "your-openai-credentials",
+          "name": "OpenAI Account"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "Summarizes and categorizes the fetched listing text"
+    },
+    {
+      "parameters": {
+        "values": [
+          {
+            "name": "Company",
+            "value": "={{$json[\"CompanyName\"]}}"
+          },
+          {
+            "name": "ListingData",
+            "value": "={{$json[\"data\"]}}"
+          },
+          {
+            "name": "SummaryAndCategories",
+            "value": "={{$json[\"choices\"][0][\"text\"]}}"
+          }
+        ],
+        "options": {}
+      },
+      "name": "Combine Results",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        1750,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Combines original data and the summarized output"
+    },
+    {
+      "parameters": {},
+      "name": "NoOp End",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "End of the workflow"
+    }
+  ],
+  "connections": {
+    "Read Binary File": {
+      "main": [
+        [
+          {
+            "node": "Spreadsheet File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spreadsheet File": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Search Listings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Listings": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Summarize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Summarize": {
+      "main": [
+        [
+          {
+            "node": "Combine Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Results": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Read Binary File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NoOp End": {}
+  }
+}
